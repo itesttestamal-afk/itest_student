@@ -1,74 +1,144 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-    <meta charset="UTF-8">
-    <title>iTest - قائمة الطلاب</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            direction: rtl;
-            background: #f5f5f5;
-            padding: 20px;
-        }
-        h1 {
-            text-align: center;
-            font-size: 48px;
-            color: #0a4f0a;
-            font-weight: bold;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-            margin-top: 30px;
-        }
-        th, td {
-            padding: 12px;
-            border: 1px solid #ccc;
-            text-align: center;
-        }
-        th {
-            background: #0a4f0a;
-            color: white;
-            font-size: 20px;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>iTest - قائمة الطلاب</title>
+<style>
+body {
+    font-family: Arial, sans-serif;
+    direction: rtl;
+    background: #f5f5f5;
+    padding: 20px;
+}
+h1 {
+    text-align: center;
+    font-size: 48px;
+    color: #0a4f0a;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+h2 {
+    text-align: center;
+    font-size: 28px;
+    color: #333;
+    margin-top:0;
+}
+#search-container {
+    text-align: center;
+    margin: 20px 0;
+}
+#search {
+    padding: 8px;
+    width: 50%;
+    font-size: 18px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+#download-btn {
+    display: block;
+    margin: 10px auto 20px auto;
+    padding: 10px 20px;
+    font-size: 16px;
+    background: #0a4f0a;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+#download-btn:hover {
+    background: #06400d;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+th, td {
+    padding: 12px;
+    border: 1px solid #ccc;
+    text-align: center;
+}
+th {
+    background: #0a4f0a;
+    color: white;
+    font-size: 20px;
+}
+</style>
 </head>
 <body>
 
-    <h1>iTest</h1>
+<h1>iTest</h1>
+<h2 id="exam-name">امتحان الرياضيات</h2>
 
-    <table id="students-table">
+<div id="search-container">
+    <input type="text" id="search" placeholder="ابحث عن اسم الطالب...">
+</div>
+
+<button id="download-btn">تحميل كملف Excel</button>
+
+<table id="students-table">
+    <thead>
         <tr>
             <th>#</th>
             <th>الاسم</th>
             <th>وقت الدخول</th>
         </tr>
-    </table>
+    </thead>
+    <tbody></tbody>
+</table>
 
-    <script>
-        const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQpvziG2pi3c-qHGIJuP2M5RxUXgkWtK_5I1oPxSRhcp8ml7Ty8b4JVP-OogglSp1ddcYh7WSsUvABV/pub?output=csv";
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQpvziG2pi3c-qHGIJuP2M5RxUXgkWtK_5I1oPxSRhcp8ml7Ty8b4JVP-OogglSp1ddcYh7WSsUvABV/pub?output=csv";
+let studentsData = [];
 
-        fetch(csvUrl)
-            .then(response => response.text())
-            .then(data => {
-                let rows = data.split("\n").slice(1);
-                let table = document.getElementById("students-table");
-
-                rows.forEach((row, i) => {
-                    let cols = row.split(",");
-                    if (cols.length >= 2) {
-                        let tr = document.createElement("tr");
-                        tr.innerHTML = `
-                            <td>${i + 1}</td>
-                            <td>${cols[0]}</td>
-                            <td>${cols[1]}</td>
-                        `;
-                        table.appendChild(tr);
-                    }
-                });
+function loadStudents() {
+    fetch(csvUrl)
+        .then(res => res.text())
+        .then(data => {
+            const rows = data.split("\n").slice(1).filter(r => r.trim() !== "");
+            studentsData = rows.map((row, i) => {
+                const cols = row.split(",");
+                return {
+                    number: i + 1,
+                    name: cols[0] || "",
+                    time: cols[1] || ""
+                };
             });
-    </script>
+            displayStudents(studentsData);
+        });
+}
+
+function displayStudents(data) {
+    const tbody = document.querySelector("#students-table tbody");
+    tbody.innerHTML = "";
+    data.forEach(s => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${s.number}</td><td>${s.name}</td><td>${s.time}</td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+// بحث تفاعلي
+document.getElementById("search").addEventListener("input", function() {
+    const query = this.value.toLowerCase();
+    const filtered = studentsData.filter(s => s.name.toLowerCase().includes(query));
+    displayStudents(filtered);
+});
+
+// تحميل كملف Excel
+document.getElementById("download-btn").addEventListener("click", function() {
+    const wb = XLSX.utils.book_new();
+    const ws_data = [["#","الاسم","وقت الدخول"]];
+    studentsData.forEach(s => ws_data.push([s.number, s.name, s.time]));
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    XLSX.utils.book_append_sheet(wb, ws, "Students");
+    XLSX.writeFile(wb, "students_list.xlsx");
+});
+
+// تحميل البيانات عند فتح الصفحة
+loadStudents();
+</script>
 
 </body>
 </html>
