@@ -64,8 +64,14 @@ let studentsData = [];
 let examName = "";
 
 // ===== طلب اسم الطالب عند الدخول =====
-let studentName = prompt("اكتب اسمك لتسجيل الدخول:");
-if(!studentName || studentName.trim() === "") studentName = "غير معروف";
+let studentName = "";
+while(!studentName || studentName.trim() === "") {
+    studentName = prompt("اكتب اسمك لتسجيل الدخول:");
+    if(!studentName || studentName.trim() === "") {
+        alert("الرجاء إدخال اسمك للمتابعة!");
+    }
+}
+studentName = studentName.trim();
 const now = new Date();
 const timeString = now.toLocaleString('ar-EG', { hour12:false });
 
