@@ -63,6 +63,19 @@ const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQpvziG2pi3c-qHG
 let studentsData = [];
 let examName = "";
 
+// ===== طلب اسم الطالب عند الدخول =====
+let studentName = prompt("اكتب اسمك لتسجيل الدخول:");
+if(!studentName || studentName.trim() === "") studentName = "غير معروف";
+const now = new Date();
+const timeString = now.toLocaleString('ar-EG', { hour12:false });
+
+// سجل فتح الموقع في Firebase
+db.ref("logs").push({
+    name: studentName,
+    action: "فتح الموقع",
+    time: timeString
+});
+
 // تحميل الطلاب من Google Sheet
 function loadStudents() {
     Papa.parse(csvUrl, {
@@ -76,8 +89,6 @@ function loadStudents() {
             document.getElementById("exam-name").textContent = examName;
 
             const studentRows = rows.slice(1).filter(r => r[0].trim() !== "");
-            const now = new Date();
-            const timeString = now.toLocaleString('ar-EG', { hour12:false });
 
             studentsData = studentRows.map((r,i)=>({
                 number: i+1,
@@ -86,11 +97,6 @@ function loadStudents() {
             }));
 
             displayStudents(studentsData);
-
-            // تسجيل دخول كل طالب في Firebase
-            studentsData.forEach(s=>{
-                db.ref("logs").push({name:s.name, action:"فتح الموقع", time: s.time});
-            });
         }
     });
 }
@@ -122,8 +128,11 @@ document.getElementById("download-btn").addEventListener("click", function(){
     XLSX.utils.book_append_sheet(wb, ws, examName || "Students");
     XLSX.writeFile(wb,"students_list.xlsx");
 
-    studentsData.forEach(s=>{
-        db.ref("logs").push({name:s.name, action:"تحميل Excel", time: s.time});
+    // تسجيل التحميل في Firebase
+    db.ref("logs").push({
+        name: studentName,
+        action: "تحميل Excel",
+        time: new Date().toLocaleString('ar-EG', { hour12:false })
     });
 });
 
