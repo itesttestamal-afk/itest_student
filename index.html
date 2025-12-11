@@ -10,75 +10,28 @@ body {
     background: #f5f5f5;
     padding: 20px;
 }
-h1 {
-    text-align: center;
-    font-size: 48px;
-    color: #0a4f0a;
-    font-weight: bold;
-    margin-bottom: 20px;
-}
-h2 {
-    text-align: center;
-    font-size: 28px;
-    color: #333;
-    margin-bottom: 10px;
-}
-#search-container {
-    text-align: center;
-    margin: 20px 0;
-}
-#search {
-    padding: 8px;
-    width: 50%;
-    font-size: 18px;
-    border-radius: 8px;
-    border: 1px solid #ccc;
-}
-#download-btn {
-    display: block;
-    margin: 10px auto 20px auto;
-    padding: 10px 20px;
-    font-size: 16px;
-    background: #0a4f0a;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-}
-#download-btn:hover {
-    background: #06400d;
-}
-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: white;
-    margin-bottom: 40px;
-}
-th, td {
-    padding: 12px;
-    border: 1px solid #ccc;
-    text-align: center;
-}
-th {
-    background: #0a4f0a;
-    color: white;
-    font-size: 20px;
-}
+h1 { text-align:center; font-size:48px; color:#0a4f0a; font-weight:bold; margin-bottom:20px; }
+h2 { text-align:center; font-size:28px; color:#333; margin-bottom:10px; }
+#search-container { text-align:center; margin:20px 0; }
+#search { padding:8px; width:50%; font-size:18px; border-radius:8px; border:1px solid #ccc; }
+#download-btn { display:block; margin:10px auto 20px auto; padding:10px 20px; font-size:16px; background:#0a4f0a; color:#fff; border:none; border-radius:8px; cursor:pointer; }
+#download-btn:hover { background:#06400d; }
+table { width:100%; border-collapse:collapse; background:white; margin-bottom:40px; }
+th, td { padding:12px; border:1px solid #ccc; text-align:center; }
+th { background:#0a4f0a; color:white; font-size:20px; }
 </style>
 </head>
 <body>
 
 <h1>iTest</h1>
-
 <div id="search-container">
     <input type="text" id="search" placeholder="ابحث عن اسم الطالب...">
 </div>
-
 <button id="download-btn">تحميل كل الطلاب كملف Excel</button>
-
 <div id="tables-container"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
 // روابط CSV لكل ورقة
 const sheets = [
@@ -86,76 +39,70 @@ const sheets = [
     { name: "ورقة 2", url: "https://docs.google.com/spreadsheets/d/e/YOUR_SHEET_ID_2/pub?output=csv" }
 ];
 
-let allStudents = []; // لتجميع كل الطلاب لكل أوراق
+let allStudents = [];
 
 function loadSheet(sheet) {
-    return fetch(sheet.url)
-        .then(res => res.text())
-        .then(data => {
-            const rows = data.split("\n").filter(r => r.trim() !== "");
-            if(rows.length === 0) return [];
-
-            // A1 = اسم الامتحان لكل ورقة
-            const examName = rows[0].split(",")[0] || sheet.name;
-
-            // باقي الصفوف = الطلاب
-            const studentRows = rows.slice(1).filter(r => r.trim() !== "");
-            const studentsData = studentRows.map((row, i) => {
-                const cols = row.split(",");
-                return { number: i + 1, name: cols[0] || "", time: cols[1] || "", sheet: examName };
-            });
-            return studentsData;
+    return new Promise((resolve) => {
+        Papa.parse(sheet.url, {
+            download: true,
+            header: false,
+            complete: function(results) {
+                const rows = results.data.filter(r => r.length > 1 || (r.length===1 && r[0].trim()!==""));
+                if(rows.length === 0) return resolve([]);
+                const examName = rows[0][0] || sheet.name;
+                const studentRows = rows.slice(1).filter(r => r[0].trim() !== "");
+                const studentsData = studentRows.map((r,i)=>({ number:i+1, name:r[0], time:r[1]||"", sheet: examName }));
+                resolve(studentsData);
+            }
         });
+    });
 }
 
 function displayTables(studentsList) {
     const container = document.getElementById("tables-container");
     container.innerHTML = "";
     studentsList.forEach(sheetData => {
-        const examName = sheetData.length > 0 ? sheetData[0].sheet : "لا يوجد طلاب";
+        const examName = sheetData.length>0 ? sheetData[0].sheet : "لا يوجد طلاب";
         const div = document.createElement("div");
         div.innerHTML = `<h2>${examName}</h2>
             <table>
-                <thead>
-                    <tr><th>#</th><th>الاسم</th><th>وقت الدخول</th></tr>
-                </thead>
+                <thead><tr><th>#</th><th>الاسم</th><th>وقت الدخول</th></tr></thead>
                 <tbody></tbody>
             </table>`;
         container.appendChild(div);
-
         const tbody = div.querySelector("tbody");
-        sheetData.forEach(s => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `<td>${s.number}</td><td>${s.name}</td><td>${s.time}</td>`;
+        sheetData.forEach(s=>{
+            const tr=document.createElement("tr");
+            tr.innerHTML=`<td>${s.number}</td><td>${s.name}</td><td>${s.time}</td>`;
             tbody.appendChild(tr);
         });
     });
 }
 
-// بحث تفاعلي لكل الأوراق
-document.getElementById("search").addEventListener("input", function() {
-    const query = this.value.toLowerCase();
-    const filtered = allStudents.map(sheetData => sheetData.filter(s => s.name.toLowerCase().includes(query)));
+// بحث تفاعلي
+document.getElementById("search").addEventListener("input", function(){
+    const q = this.value.toLowerCase();
+    const filtered = allStudents.map(sheetData=>sheetData.filter(s=>s.name.toLowerCase().includes(q)));
     displayTables(filtered);
 });
 
-// تحميل كل الطلاب كملف Excel
-document.getElementById("download-btn").addEventListener("click", function() {
+// تحميل Excel
+document.getElementById("download-btn").addEventListener("click", function(){
     const wb = XLSX.utils.book_new();
-    allStudents.forEach(sheetData => {
-        if(sheetData.length === 0) return;
-        const ws_data = [["#","الاسم","وقت الدخول"]];
-        sheetData.forEach(s => ws_data.push([s.number, s.name, s.time]));
-        const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    allStudents.forEach(sheetData=>{
+        if(sheetData.length===0) return;
+        const ws_data=[["#","الاسم","وقت الدخول"]];
+        sheetData.forEach(s=>ws_data.push([s.number,s.name,s.time]));
+        const ws=XLSX.utils.aoa_to_sheet(ws_data);
         XLSX.utils.book_append_sheet(wb, ws, sheetData[0].sheet);
     });
-    XLSX.writeFile(wb, "all_students.xlsx");
+    XLSX.writeFile(wb,"all_students.xlsx");
 });
 
 // تحميل كل الأوراق عند فتح الصفحة
 Promise.all(sheets.map(loadSheet))
-    .then(results => {
-        allStudents = results;
+    .then(results=>{
+        allStudents=results;
         displayTables(allStudents);
     });
 </script>
