@@ -2,148 +2,121 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<title>iTest - قائمة الطلاب</title>
+<title>iTest</title>
 <style>
-body { font-family: Arial; direction: rtl; background: #f5f5f5; padding: 20px; }
-h1 { text-align:center; font-size:48px; color:#0a4f0a; font-weight:bold; margin-bottom:10px; }
-#exam-name { text-align:center; font-size:28px; color:#333; margin-bottom:20px; }
-#search-container { text-align:center; margin:20px 0; }
-#search { padding:8px; width:50%; font-size:18px; border-radius:8px; border:1px solid #ccc; }
-#download-btn { display:block; margin:10px auto 20px auto; padding:10px 20px; font-size:16px; background:#0a4f0a; color:#fff; border:none; border-radius:8px; cursor:pointer; }
-#download-btn:hover { background:#06400d; }
-table { width:100%; border-collapse:collapse; background:white; }
+body { font-family: Arial; direction: rtl; background:#f5f5f5; padding:20px; }
+h1 { text-align:center; font-size:48px; color:#0a4f0a; font-weight:bold; }
+h2 { text-align:center; margin-bottom:20px; }
+input { padding:8px; width:50%; font-size:18px; border-radius:8px; border:1px solid #ccc; }
+button { padding:10px 20px; font-size:16px; background:#0a4f0a; color:#fff; border:none; border-radius:8px; cursor:pointer; }
+table { width:100%; border-collapse:collapse; background:#fff; margin-top:20px; }
 th, td { padding:12px; border:1px solid #ccc; text-align:center; }
-th { background:#0a4f0a; color:white; font-size:20px; }
+th { background:#0a4f0a; color:white; }
 </style>
 </head>
+
 <body>
 
 <h1>iTest</h1>
 <h2 id="exam-name"></h2>
 
-<div id="search-container">
-    <input type="text" id="search" placeholder="ابحث عن اسم الطالب...">
+<div style="text-align:center">
+<input type="text" id="search" placeholder="بحث...">
 </div>
 
-<button id="download-btn">تحميل كملف Excel</button>
+<div style="text-align:center;margin-top:10px;">
+<button id="download">تحميل Excel</button>
+</div>
 
-<table id="students-table">
-    <thead>
-        <tr><th>#</th><th>الاسم</th><th>وقت الدخول</th></tr>
-    </thead>
-    <tbody></tbody>
+<table>
+<thead>
+<tr>
+<th>العمود 1</th>
+<th>العمود 2</th>
+<th>العمود 3</th>
+</tr>
+</thead>
+<tbody id="table-body"></tbody>
 </table>
 
-<!-- Firebase SDK (Compat version لتعمل على HTML مباشرة) -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-<!-- مكتبات Excel وCSV -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- CSV + Excel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <script>
-// ===== إعداد Firebase =====
-const firebaseConfig = {
+// ===== Firebase =====
+firebase.initializeApp({
   apiKey: "AIzaSyDwo_m6yDM5WAHfUOSbscMgYBOe0OLIdU4",
   authDomain: "itestlogs.firebaseapp.com",
   databaseURL: "https://itestlogs-default-rtdb.firebaseio.com",
   projectId: "itestlogs",
   storageBucket: "itestlogs.firebasestorage.app",
   messagingSenderId: "551369243108",
-  appId: "1:551369243108:web:d675894ba6ed4a161f6ff1",
-  measurementId: "G-XERJ9K7618"
-};
-firebase.initializeApp(firebaseConfig);
+  appId: "1:551369243108:web:d675894ba6ed4a161f6ff1"
+});
 const db = firebase.database();
 
-// رابط Google Sheet بصيغة CSV
-const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQpvziG2pi3c-qHGIJuP2M5RxUXgkWtK_5I1oPxSRhcp8ml7Ty8b4JVP-OogglSp1ddcYh7WSsUvABV/pub?output=csv";
-
-let studentsData = [];
-let examName = "";
-
-// ===== طلب اسم الطالب عند الدخول =====
-let studentName = "";
-while(!studentName || studentName.trim() === "") {
-    studentName = prompt("اكتب اسمك لتسجيل الدخول:");
-    if(!studentName || studentName.trim() === "") {
-        alert("الرجاء إدخال اسمك للمتابعة!");
-    }
+// ===== اسم الطالب (إجباري) =====
+let user = "";
+while(!user){
+  user = prompt("اكتب اسمك:");
+  if(!user) alert("يجب إدخال الاسم");
 }
-studentName = studentName.trim();
-const now = new Date();
-const timeString = now.toLocaleString('ar-EG', { hour12:false });
 
-// سجل فتح الموقع في Firebase
+// سجل الدخول
 db.ref("logs").push({
-    name: studentName,
-    action: "فتح الموقع",
-    time: timeString
+  name: user,
+  action: "فتح الموقع",
+  time: new Date().toLocaleString("ar-EG")
 });
 
-// تحميل الطلاب من Google Sheet
-function loadStudents() {
-    Papa.parse(csvUrl, {
-        download: true,
-        header: false,
-        complete: function(results) {
-            const rows = results.data.filter(r => r.length > 0 && r[0].trim() !== "");
-            if(rows.length === 0) return;
+// ===== Google Sheet CSV =====
+const csvUrl = "PUT_YOUR_CSV_LINK_HERE";
 
-            examName = rows[0][0] || "";
-            document.getElementById("exam-name").textContent = examName;
+let rowsData = [];
 
-            const studentRows = rows.slice(1).filter(r => r[0].trim() !== "");
+// تحميل البيانات
+Papa.parse(csvUrl, {
+  download: true,
+  complete: function(res){
+    const rows = res.data.filter(r => r.length >= 3 && r[0] !== "");
+    document.getElementById("exam-name").textContent = rows[0][0];
+    rowsData = rows.slice(1);
+    render(rowsData);
+  }
+});
 
-            studentsData = studentRows.map((r,i)=>({
-                number: i+1,
-                name: r[0],
-                time: timeString
-            }));
-
-            displayStudents(studentsData);
-        }
-    });
+function render(data){
+  const body = document.getElementById("table-body");
+  body.innerHTML = "";
+  data.forEach(r=>{
+    body.innerHTML += `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`;
+  });
 }
 
-// عرض الطلاب في الجدول
-function displayStudents(data) {
-    const tbody = document.querySelector("#students-table tbody");
-    tbody.innerHTML = "";
-    data.forEach(s=>{
-        const tr=document.createElement("tr");
-        tr.innerHTML=`<td>${s.number}</td><td>${s.name}</td><td>${s.time}</td>`;
-        tbody.appendChild(tr);
-    });
-}
+// بحث
+document.getElementById("search").oninput = e =>{
+  const q = e.target.value.toLowerCase();
+  render(rowsData.filter(r => r.join(" ").toLowerCase().includes(q)));
+};
 
-// بحث تفاعلي
-document.getElementById("search").addEventListener("input", function(){
-    const query = this.value.toLowerCase();
-    const filtered = studentsData.filter(s=>s.name.toLowerCase().includes(query));
-    displayStudents(filtered);
-});
+// تحميل Excel
+document.getElementById("download").onclick = ()=>{
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([["A","B","C"], ...rowsData]);
+  XLSX.utils.book_append_sheet(wb, ws, "Students");
+  XLSX.writeFile(wb,"students.xlsx");
 
-// تحميل Excel + تسجيل التحميل في Firebase
-document.getElementById("download-btn").addEventListener("click", function(){
-    const wb = XLSX.utils.book_new();
-    const ws_data=[["#","الاسم","وقت الدخول"]];
-    studentsData.forEach(s=>ws_data.push([s.number,s.name,s.time]));
-    const ws=XLSX.utils.aoa_to_sheet(ws_data);
-    XLSX.utils.book_append_sheet(wb, ws, examName || "Students");
-    XLSX.writeFile(wb,"students_list.xlsx");
-
-    // تسجيل التحميل في Firebase
-    db.ref("logs").push({
-        name: studentName,
-        action: "تحميل Excel",
-        time: new Date().toLocaleString('ar-EG', { hour12:false })
-    });
-});
-
-// تحميل الطلاب عند فتح الصفحة
-loadStudents();
+  db.ref("logs").push({
+    name: user,
+    action: "تحميل Excel",
+    time: new Date().toLocaleString("ar-EG")
+  });
+};
 </script>
 
 </body>
