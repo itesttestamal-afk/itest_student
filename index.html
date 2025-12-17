@@ -67,7 +67,7 @@ function distribute(students) {
   const startTime = document.getElementById("startTime").value;
   finalData = [];
 
-  let roomSlots = ROOMS.map(r => ({timeIndex:0, studentsCount:0})); // لتتبع كل غرفة
+  let roomSlots = ROOMS.map(r => ({timeIndex:0, studentsCount:0}));
 
   let studentIndex = 0;
   while(studentIndex < students.length) {
@@ -85,7 +85,6 @@ function distribute(students) {
         });
         roomSlots[idx].studentsCount++;
       }
-      // بعد كل دورة (حسب عدد الحواسيب) نزيد timeIndex لنصف ساعة جديدة
       if(roomSlots[idx].studentsCount >= room.computers){
         roomSlots[idx].timeIndex++;
         roomSlots[idx].studentsCount = 0;
@@ -123,14 +122,20 @@ function showTablesByRoom() {
 }
 
 function downloadExcel() {
-  const ws = XLSX.utils.json_to_sheet(finalData.map(r => ({
-    "שם תלמיד": r["שם תלמיד"],
-    "חדר": r["חדר"],
-    "שעת התחלה": r["שעת התחלה"],
-    "שעת סיום": r["שעת סיום"]
-  })));
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "שיבוץ");
+
+  ROOMS.forEach((room, idx) => {
+    const roomData = finalData
+      .filter(r => r["חדר"] === room.name)
+      .map(r => ({
+        "שם תלמיד": r["שם תלמיד"],
+        "שעת התחלה": r["שעת התחלה"],
+        "שעת סיום": r["שעת סיום"]
+      }));
+    const ws = XLSX.utils.json_to_sheet(roomData);
+    XLSX.utils.book_append_sheet(wb, ws, room.name);
+  });
+
   XLSX.writeFile(wb, "שיבוץ_תלמידים.xlsx");
 }
 </script>
