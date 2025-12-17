@@ -1,118 +1,137 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="he">
 <head>
 <meta charset="UTF-8">
-<title>iTest</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Itest - חלוקת תלמידים</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
 <style>
-body { font-family: Arial; text-align: center; background: #f4f6f8; padding: 20px; }
-h1 { color: #006400; font-size: 42px; margin-bottom: 10px; }
-h2 { font-size: 28px; margin-bottom: 20px; color: #333; }
-input { width: 80%; max-width: 400px; padding: 12px; font-size: 18px; border: 2px solid #006400; border-radius: 8px; margin-bottom: 20px; }
-button { padding: 10px 20px; font-size: 16px; border: none; border-radius: 8px; background: #006400; color: #fff; cursor: pointer; margin-bottom: 20px; }
-table { width: 95%; margin: auto; border-collapse: collapse; background: #fff; }
-th, td { border: 1px solid #ccc; padding: 10px; font-size: 16px; }
-th { background: #e8f5e9; }
+body { font-family: Arial; direction: rtl; padding: 20px; background: #f9f9f9; }
+h1 { text-align: center; margin-bottom: 20px; }
+table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+th, td { border: 1px solid #444; padding: 6px; text-align: center; }
+th { background: #eee; }
+button { padding: 10px; margin-top: 10px; margin-right: 10px; }
+.room-0 { background-color: #ffdede; }  /* עוז */
+.room-1 { background-color: #deffde; }  /* סיבם תיבם */
+.room-2 { background-color: #dedeff; }  /* Itest */
+.room-3 { background-color: #fff5de; }  /* משאבים */
 </style>
 </head>
+
 <body>
 
-<h1>iTest</h1>
-<h2 id="examName"></h2>
+<h1>Itest - חלוקת תלמידים</h1>
 
-<input type="text" id="search" placeholder="ابحث عن طالب...">
-<br>
-<button id="downloadBtn">تحميل Excel</button>
+<input type="file" id="excelFile" accept=".xlsx,.xls"><br><br>
 
-<table id="studentsTable">
-  <thead>
-    <tr>
-      <th>العمود 1</th>
-      <th>العمود 2</th>
-      <th>العمود 3</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
+<label>שעת התחלת הבחינה:</label>
+<input type="time" id="startTime" value="09:00"><br><br>
 
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<button onclick="processFile()">בצע שיבוץ</button>
+<button onclick="downloadExcel()" id="downloadBtn" style="display:none">
+הורדת קובץ Excel
+</button>
 
-<!-- CSV + Excel -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<div id="result"></div>
 
 <script>
-// ===== Firebase =====
-firebase.initializeApp({
-  apiKey: "AIzaSyDwo_m6yDM5WAHfUOSbscMgYBOe0OLIdU4",
-  authDomain: "itestlogs.firebaseapp.com",
-  databaseURL: "https://itestlogs-default-rtdb.firebaseio.com",
-  projectId: "itestlogs",
-  storageBucket: "itestlogs.firebasestorage.app",
-  messagingSenderId: "551369243108",
-  appId: "1:551369243108:web:d675894ba6ed4a161f6ff1"
-});
-const db = firebase.database();
+const EXAM_DURATION = 30;
 
-// ===== اسم الطالب إجباري =====
-let userName = "";
-while(!userName){
-  userName = prompt("اكتب اسمك:");
-  if(!userName) alert("يجب إدخال الاسم");
-}
+// שמות החדרים
+const ROOMS = [
+  "עוז",
+  "סיבם תיבם",
+  "Itest",
+  "משאבים"
+];
 
-// سجل الدخول
-db.ref("logs").push({
-  name: userName,
-  action: "فتح الموقع",
-  time: new Date().toLocaleString("ar-EG")
-});
+let finalData = [];
 
-// ===== CSV Google Sheet =====
-const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQpvziG2pi3c-qHGIJuP2M5RxUXgkWtK_5I1oPxSRhcp8ml7Ty8b4JVP-OogglSp1ddcYh7WSsUvABV/pub?output=csv";
-let studentsData = [];
-
-Papa.parse(csvUrl, {
-  download: true,
-  complete: function(results){
-    const rows = results.data.filter(r => r.length >= 3 && r[0] !== "");
-    document.getElementById("examName").textContent = rows[0][0]; // اسم الامتحان من A1
-    studentsData = rows.slice(1); // باقي الطلاب
-    renderTable(studentsData);
+function processFile() {
+  const fileInput = document.getElementById("excelFile");
+  if (!fileInput.files.length) {
+    alert("נא להעלות קובץ Excel");
+    return;
   }
-});
 
-function renderTable(data){
-  const tbody = document.querySelector("#studentsTable tbody");
-  tbody.innerHTML = "";
-  data.forEach(r=>{
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td>`;
-    tbody.appendChild(tr);
-  });
+  const reader = new FileReader();
+  reader.onload = e => {
+    const data = new Uint8Array(e.target.result);
+    const wb = XLSX.read(data, { type: "array" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const students = XLSX.utils.sheet_to_json(sheet);
+    distribute(students);
+  };
+  reader.readAsArrayBuffer(fileInput.files[0]);
 }
 
-// البحث
-document.getElementById("search").addEventListener("input", function(){
-  const q = this.value.toLowerCase();
-  renderTable(studentsData.filter(r=>r.join(" ").toLowerCase().includes(q)));
-});
+function distribute(students) {
+  const startTime = document.getElementById("startTime").value;
+  finalData = [];
 
-// تحميل Excel
-document.getElementById("downloadBtn").onclick = ()=>{
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet([["العمود 1","العمود 2","العمود 3"], ...studentsData]);
-  XLSX.utils.book_append_sheet(wb, ws, "Students");
-  XLSX.writeFile(wb,"students.xlsx");
+  students.forEach((s, index) => {
+    const roomIndex = index % ROOMS.length;
+    const slot = Math.floor(index / ROOMS.length);
 
-  db.ref("logs").push({
-    name: userName,
-    action: "تحميل Excel",
-    time: new Date().toLocaleString("ar-EG")
+    const start = addMinutes(startTime, slot * EXAM_DURATION);
+    const end = addMinutes(start, EXAM_DURATION);
+
+    finalData.push({
+      "שם תלמיד": s["שם תלמיד"],
+      "חדר": ROOMS[roomIndex],
+      "שעת התחלה": start,
+      "שעת סיום": end,
+      "roomClass": "room-" + roomIndex
+    });
   });
-};
+
+  showTable();
+  document.getElementById("downloadBtn").style.display = "inline-block";
+}
+
+function addMinutes(time, mins) {
+  let [h, m] = time.split(":").map(Number);
+  let total = h * 60 + m + mins;
+  let nh = Math.floor(total / 60) % 24;
+  let nm = total % 60;
+  return `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`;
+}
+
+function showTable() {
+  let html = `
+  <table>
+    <tr>
+      <th>שם תלמיד</th>
+      <th>חדר</th>
+      <th>שעת התחלה</th>
+      <th>שעת סיום</th>
+    </tr>`;
+
+  finalData.forEach(r => {
+    html += `<tr class="${r.roomClass}">
+      <td>${r["שם תלמיד"]}</td>
+      <td>${r["חדר"]}</td>
+      <td>${r["שעת התחלה"]}</td>
+      <td>${r["שעת סיום"]}</td>
+    </tr>`;
+  });
+
+  html += "</table>";
+  document.getElementById("result").innerHTML = html;
+}
+
+function downloadExcel() {
+  const ws = XLSX.utils.json_to_sheet(finalData.map(r => ({
+    "שם תלמיד": r["שם תלמיד"],
+    "חדר": r["חדר"],
+    "שעת התחלה": r["שעת התחלה"],
+    "שעת סיום": r["שעת סיום"]
+  })));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "שיבוץ");
+  XLSX.writeFile(wb, "שיבוץ_תלמידים.xlsx");
+}
 </script>
 
 </body>
