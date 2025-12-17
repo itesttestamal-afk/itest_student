@@ -8,7 +8,8 @@
 <style>
 body { font-family: Arial; direction: rtl; padding: 20px; background: #f9f9f9; }
 h1 { text-align: center; margin-bottom: 20px; }
-table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+h2 { margin-top: 30px; }
+table { border-collapse: collapse; width: 100%; margin-top: 10px; }
 th, td { border: 1px solid #444; padding: 6px; text-align: center; }
 th { background: #eee; }
 button { padding: 10px; margin-top: 10px; margin-right: 10px; }
@@ -37,23 +38,12 @@ button { padding: 10px; margin-top: 10px; margin-right: 10px; }
 
 <script>
 const EXAM_DURATION = 30;
-
-// שמות החדרים
-const ROOMS = [
-  "עוז",
-  "סיבם תיבם",
-  "Itest",
-  "משאבים"
-];
-
+const ROOMS = ["עוז","סיבם תיבם","Itest","משאבים"];
 let finalData = [];
 
 function processFile() {
   const fileInput = document.getElementById("excelFile");
-  if (!fileInput.files.length) {
-    alert("נא להעלות קובץ Excel");
-    return;
-  }
+  if (!fileInput.files.length) { alert("נא להעלות קובץ Excel"); return; }
 
   const reader = new FileReader();
   reader.onload = e => {
@@ -86,38 +76,32 @@ function distribute(students) {
     });
   });
 
-  showTable();
+  showTablesByRoom();
   document.getElementById("downloadBtn").style.display = "inline-block";
 }
 
 function addMinutes(time, mins) {
-  let [h, m] = time.split(":").map(Number);
-  let total = h * 60 + m + mins;
-  let nh = Math.floor(total / 60) % 24;
+  let [h,m] = time.split(":").map(Number);
+  let total = h*60 + m + mins;
+  let nh = Math.floor(total/60) % 24;
   let nm = total % 60;
-  return `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`;
+  return `${String(nh).padStart(2,"0")}:${String(nm).padStart(2,"0")}`;
 }
 
-function showTable() {
-  let html = `
-  <table>
-    <tr>
-      <th>שם תלמיד</th>
-      <th>חדר</th>
-      <th>שעת התחלה</th>
-      <th>שעת סיום</th>
-    </tr>`;
-
-  finalData.forEach(r => {
-    html += `<tr class="${r.roomClass}">
-      <td>${r["שם תלמיד"]}</td>
-      <td>${r["חדר"]}</td>
-      <td>${r["שעת התחלה"]}</td>
-      <td>${r["שעת סיום"]}</td>
-    </tr>`;
+function showTablesByRoom() {
+  let html = "";
+  ROOMS.forEach((room, idx) => {
+    html += `<h2>${room}</h2>`;
+    html += `<table><tr><th>שם תלמיד</th><th>שעת התחלה</th><th>שעת סיום</th></tr>`;
+    finalData.filter(r => r["חדר"] === room).forEach(r => {
+      html += `<tr class="room-${idx}">
+        <td>${r["שם תלמיד"]}</td>
+        <td>${r["שעת התחלה"]}</td>
+        <td>${r["שעת סיום"]}</td>
+      </tr>`;
+    });
+    html += `</table>`;
   });
-
-  html += "</table>";
   document.getElementById("result").innerHTML = html;
 }
 
