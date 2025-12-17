@@ -37,8 +37,15 @@ button { padding: 10px; margin-top: 10px; margin-right: 10px; }
 <div id="result"></div>
 
 <script>
-const EXAM_DURATION = 30;
-const ROOMS = ["עוז","סיבם תיבם","Itest","משאבים"];
+const EXAM_DURATION = 30; // דקות
+// تعريف الغرف وعدد الحواسيب
+const ROOMS = [
+  {name:"עוז", computers:6},
+  {name:"סיבם תיבם", computers:5},
+  {name:"Itest", computers:5},
+  {name:"משאבים", computers:4}
+];
+
 let finalData = [];
 
 function processFile() {
@@ -60,21 +67,31 @@ function distribute(students) {
   const startTime = document.getElementById("startTime").value;
   finalData = [];
 
-  students.forEach((s, index) => {
-    const roomIndex = index % ROOMS.length;
-    const slot = Math.floor(index / ROOMS.length);
+  let roomSlots = ROOMS.map(r => ({timeIndex:0, studentsCount:0})); // لتتبع كل غرفة
 
-    const start = addMinutes(startTime, slot * EXAM_DURATION);
-    const end = addMinutes(start, EXAM_DURATION);
-
-    finalData.push({
-      "שם תלמיד": s["שם תלמיד"],
-      "חדר": ROOMS[roomIndex],
-      "שעת התחלה": start,
-      "שעת סיום": end,
-      "roomClass": "room-" + roomIndex
+  let studentIndex = 0;
+  while(studentIndex < students.length) {
+    ROOMS.forEach((room, idx) => {
+      for(let i=0; i<room.computers && studentIndex<students.length; i++, studentIndex++){
+        let slot = roomSlots[idx].timeIndex;
+        let start = addMinutes(startTime, slot*EXAM_DURATION);
+        let end = addMinutes(start, EXAM_DURATION);
+        finalData.push({
+          "שם תלמיד": students[studentIndex]["שם תלמיד"],
+          "חדר": room.name,
+          "שעת התחלה": start,
+          "שעת סיום": end,
+          "roomClass": "room-" + idx
+        });
+        roomSlots[idx].studentsCount++;
+      }
+      // بعد كل دورة (حسب عدد الحواسيب) نزيد timeIndex لنصف ساعة جديدة
+      if(roomSlots[idx].studentsCount >= room.computers){
+        roomSlots[idx].timeIndex++;
+        roomSlots[idx].studentsCount = 0;
+      }
     });
-  });
+  }
 
   showTablesByRoom();
   document.getElementById("downloadBtn").style.display = "inline-block";
@@ -91,9 +108,9 @@ function addMinutes(time, mins) {
 function showTablesByRoom() {
   let html = "";
   ROOMS.forEach((room, idx) => {
-    html += `<h2>${room}</h2>`;
+    html += `<h2>${room.name}</h2>`;
     html += `<table><tr><th>שם תלמיד</th><th>שעת התחלה</th><th>שעת סיום</th></tr>`;
-    finalData.filter(r => r["חדר"] === room).forEach(r => {
+    finalData.filter(r => r["חדר"] === room.name).forEach(r => {
       html += `<tr class="room-${idx}">
         <td>${r["שם תלמיד"]}</td>
         <td>${r["שעת התחלה"]}</td>
