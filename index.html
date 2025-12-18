@@ -33,12 +33,14 @@ button { padding: 10px; margin-top: 10px; margin-right: 10px; }
 <button onclick="downloadExcel()" id="downloadBtn" style="display:none">
 הורדת קובץ Excel
 </button>
+<button onclick="downloadMDF()" id="downloadMDFBtn" style="display:none">
+הורדת קובץ MDF
+</button>
 
 <div id="result"></div>
 
 <script>
 const EXAM_DURATION = 30; // דקות
-// تعريف الغرف وعدد الحواسيب
 const ROOMS = [
   {name:"עוז", computers:6},
   {name:"סיבם תיבם", computers:5},
@@ -68,8 +70,8 @@ function distribute(students) {
   finalData = [];
 
   let roomSlots = ROOMS.map(r => ({timeIndex:0, studentsCount:0}));
-
   let studentIndex = 0;
+
   while(studentIndex < students.length) {
     ROOMS.forEach((room, idx) => {
       for(let i=0; i<room.computers && studentIndex<students.length; i++, studentIndex++){
@@ -78,6 +80,7 @@ function distribute(students) {
         let end = addMinutes(start, EXAM_DURATION);
         finalData.push({
           "שם תלמיד": students[studentIndex]["שם תלמיד"],
+          "כתה": students[studentIndex]["כתה"] || "",
           "חדר": room.name,
           "שעת התחלה": start,
           "שעת סיום": end,
@@ -94,6 +97,7 @@ function distribute(students) {
 
   showTablesByRoom();
   document.getElementById("downloadBtn").style.display = "inline-block";
+  document.getElementById("downloadMDFBtn").style.display = "inline-block";
 }
 
 function addMinutes(time, mins) {
@@ -108,10 +112,17 @@ function showTablesByRoom() {
   let html = "";
   ROOMS.forEach((room, idx) => {
     html += `<h2>${room.name}</h2>`;
-    html += `<table><tr><th>שם תלמיד</th><th>שעת התחלה</th><th>שעת סיום</th></tr>`;
+    html += `<table>
+               <tr>
+                 <th>שם תלמיד</th>
+                 <th>כתה</th>
+                 <th>שעת התחלה</th>
+                 <th>שעת סיום</th>
+               </tr>`;
     finalData.filter(r => r["חדר"] === room.name).forEach(r => {
       html += `<tr class="room-${idx}">
         <td>${r["שם תלמיד"]}</td>
+        <td>${r["כתה"] || ""}</td>
         <td>${r["שעת התחלה"]}</td>
         <td>${r["שעת סיום"]}</td>
       </tr>`;
@@ -123,20 +134,31 @@ function showTablesByRoom() {
 
 function downloadExcel() {
   const wb = XLSX.utils.book_new();
-
   ROOMS.forEach((room, idx) => {
     const roomData = finalData
       .filter(r => r["חדר"] === room.name)
       .map(r => ({
         "שם תלמיד": r["שם תלמיד"],
+        "כתה": r["כתה"] || "",
         "שעת התחלה": r["שעת התחלה"],
         "שעת סיום": r["שעת סיום"]
       }));
     const ws = XLSX.utils.json_to_sheet(roomData);
     XLSX.utils.book_append_sheet(wb, ws, room.name);
   });
-
   XLSX.writeFile(wb, "שיבוץ_תלמידים.xlsx");
+}
+
+function downloadMDF() {
+  const mdfContent = finalData.map(r =>
+    `${r["שם תלמיד"]};${r["כתה"]};${r["חדר"]};${r["שעת התחלה"]};${r["שעת סיום"]}`
+  ).join("\n");
+
+  const blob = new Blob([mdfContent], {type: "text/plain"});
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "שיבוץ_תלמידים.mdf";
+  link.click();
 }
 </script>
 
