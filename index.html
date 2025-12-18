@@ -59,7 +59,17 @@ function processFile() {
     const data = new Uint8Array(e.target.result);
     const wb = XLSX.read(data, { type: "array" });
     const sheet = wb.Sheets[wb.SheetNames[0]];
-    const students = XLSX.utils.sheet_to_json(sheet);
+
+    // نقرأ الملف باستخدام الصف الأول كعناوين الأعمدة
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    const headers = rows[0]; // الصف الأول كعناوين
+    const students = rows.slice(1).map(r => {
+      return {
+        "שם תלמיד": r[0] || "",
+        "כתה": r[1] || ""
+      };
+    });
+
     distribute(students);
   };
   reader.readAsArrayBuffer(fileInput.files[0]);
